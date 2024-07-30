@@ -55,6 +55,8 @@ def process_video_download(message):
 
 
 def download_videos(url, output_dir=SAVE_DIR):
+    start_timer = time.time()
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -77,6 +79,10 @@ def download_videos(url, output_dir=SAVE_DIR):
     for root, _, files in os.walk(output_dir):
         for file in files:
             downloaded_files.append(os.path.join(root, file))
+
+    end_timer = time.time() - start_timer
+    print(f"Time taken: {end_timer:.2f} seconds")
+
     return downloaded_files
 
 
