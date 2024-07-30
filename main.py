@@ -1,13 +1,15 @@
 import os
+import time
 import random
+
 import telebot
 from telebot import types
 from res import response
 import yt_dlp
 
 from dotenv import load_dotenv
-load_dotenv()
 
+load_dotenv()
 
 TOKEN = os.getenv('BOT_TOKEN')
 if not TOKEN:
@@ -37,14 +39,14 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'download_video')
 def handle_download_video(call):
-    bot.send_message(call.message.chat.id, "Send me the video or playlist link you want to download! 😸")
+    bot.send_message(call.message.chat.id, "Send me the video or playlist link you want to download")
     bot.register_next_step_handler(call.message, process_video_download)
 
 
 def process_video_download(message):
     url = message.text
     try:
-        bot.send_message(message.chat.id, "Downloading video(s)... 😸")
+        bot.send_message(message.chat.id, "Downloading video(s)... ")
         video_paths = download_videos(url)
 
         bot.send_message(message.chat.id, "Download completed! 😊 Your video(s) are saved locally.")
@@ -57,15 +59,20 @@ def download_videos(url, output_dir=SAVE_DIR):
         os.makedirs(output_dir)
 
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',  # Скачиваем лучшее видео и аудио
+        'format': 'bestvideo+bestaudio/best',
         'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
-        'noplaylist': False  # Разрешаем скачивание плейлистов
+        'noplaylist': False,
+        # launch video converter ffmpeg :
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
+        print("Video downloaded successfully!")
 
-    # Возвращаем список скачанных файлов
     downloaded_files = []
     for root, _, files in os.walk(output_dir):
         for file in files:
