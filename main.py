@@ -2,12 +2,23 @@ import os
 import time
 import random
 
-import telebot
-from telebot import types
-from res import response
 import yt_dlp
-
 from dotenv import load_dotenv
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    CallbackContext,
+)
+
+from res import response
 
 load_dotenv()
 
@@ -15,46 +26,59 @@ TOKEN = os.getenv('BOT_TOKEN')
 if not TOKEN:
     raise ValueError("Token is not set in environment variables")
 
-bot = telebot.TeleBot(TOKEN)
-
 SAVE_DIR = 'downloads'
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    keyboard = types.InlineKeyboardMarkup(row_width=2)
-    btn_download_video = types.InlineKeyboardButton(
-        "download video", callback_data='download_video'
+async def start(update: Update, context: CallbackContext) -> None:
+    keyboard = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton("Download Video", callback_data='download_video'),
+            InlineKeyboardButton("Post Video", callback_data='post_video')
+        ]]
     )
-    btn_upload_video = types.InlineKeyboardButton(
-        "post video", callback_data='post_video'
-    )
-    keyboard.add(btn_download_video, btn_upload_video)
-    bot.send_message(
-        message.chat.id, f" Hi ! How can I help you ? ", reply_markup=keyboard
+    await update.message.reply_text(
+        "Hi! How can I help you?", reply_markup=keyboard
     )
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'download_video')
-def handle_download_video(call):
-    bot.send_message(call.message.chat.id, "Send me the video or playlist link you want to download")
-    bot.register_next_step_handler(call.message, process_video_download)
+async def handle_download_video(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(text="Send me the video or playlist link you want to download")
+    context.user_data['action'] = 'download_video'
 
 
-def process_video_download(message):
+async def handle_post_video(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(text="Send me the video you want to post and specify the posting time and interval.")
+    context.user_data['action'] = 'post_video'
+
+
+async def process_message(update: Update, context: CallbackContext) -> None:
+    user_action = context.user_data.get('action')
+    if user_action == 'download_video':
+        await process_video_download(update.message)
+    elif user_action == 'post_video':
+        await process_post_video(update.message, context)
+    else:
+        random_response = random.choice(response)
+        await update.message.reply_text(random_response)
+
+
+async def process_video_download(message) -> None:
     url = message.text
     try:
-        bot.send_message(message.chat.id, "Downloading video(s)... ")
-        video_paths = download_videos(url)
-
-        bot.send_message(message.chat.id, "Download completed! 😊 Your video(s) are saved locally.")
+        await message.reply_text("Downloading video(s)...")
+        download_videos(url)
+        await message.reply_text("Download completed! 😊 Your video(s) are saved locally.")
     except Exception as e:
-        bot.send_message(message.chat.id, f"Failed to download video(s). 😿 Error: {e}")
+        await message.reply_text(f"Failed to download video(s). 😿 Error: {e}")
 
 
-def download_videos(url, output_dir=SAVE_DIR):
+def download_videos(url, output_dir=SAVE_DIR) -> list:
     start_timer = time.time()
 
     if not os.path.exists(output_dir):
@@ -86,11 +110,14 @@ def download_videos(url, output_dir=SAVE_DIR):
     return downloaded_files
 
 
-@bot.message_handler()
-def echo(message):
-    random_response = random.choice(response)
-    bot.send_message(message.chat.id, random_response)
+async def process_post_video(message, context):
+    pass
 
+
+application = Application.builder().token(TOKEN).build()
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CallbackQueryHandler(handle_download_video, pattern='download_video'))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_message))
 
 print("Bot is working...")
-bot.polling()
+application.run_polling()
