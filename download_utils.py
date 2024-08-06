@@ -3,11 +3,6 @@ import time
 import yt_dlp
 
 
-SAVE_DIR = 'downloads'
-if not os.path.exists(SAVE_DIR):
-    os.makedirs(SAVE_DIR)
-
-
 async def process_video_download(message) -> None:
     url = message.text
     try:
@@ -18,15 +13,15 @@ async def process_video_download(message) -> None:
         await message.reply_text(f"Failed to download video(s). 😿 Error: {e}")
 
 
-def download_videos(url, output_dir='downloads') -> list:
+def download_videos(url, directory='downloads') -> list:
     start_timer = time.time()
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',
-        'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
+        'outtmpl': f'{directory}/%(title)s.%(ext)s',
         'noplaylist': False,
         # launch video converter ffmpeg :
         'postprocessors': [{
@@ -40,7 +35,7 @@ def download_videos(url, output_dir='downloads') -> list:
         print("Video downloaded successfully!")
 
     downloaded_files = []
-    for root, _, files in os.walk(output_dir):
+    for root, _, files in os.walk(directory):
         for file in files:
             downloaded_files.append(os.path.join(root, file))
 
